@@ -195,9 +195,9 @@ function useResolvedStreamUrl(server: ServerOption | null) {
       return;
     }
 
-    // Direct stream — no proxy needed
+    // Route through proxy so the server adds Referer: kwik.cx for the CDN
     if (server.type === 'stream') {
-      setResolvedUrl(server.url);
+      setResolvedUrl(`/api/anime/stream-proxy?url=${encodeURIComponent(server.url)}`);
       setResolveError(null);
       return;
     }
@@ -280,15 +280,8 @@ function VideoPlayer({
         video.src = resolvedUrl;
         return;
       }
-
-      hlsInstance = new HlsCtor({
-        xhrSetup: (xhr: XMLHttpRequest, url: string) => {
-          // kwik.cx CDN segments need the correct Referer
-          if (url.includes('kwik') || url.includes('owocdn')) {
-            xhr.setRequestHeader('Referer', 'https://animepahe.ru/');
-          }
-        },
-      });
+      
+      hlsInstance = new HlsCtor();
       hlsInstance?.loadSource?.(resolvedUrl);
       hlsInstance?.attachMedia?.(video);
     };
