@@ -1,0 +1,244 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+:root {
+  --radius: 0.625rem;
+  --black: #050505;
+  --primary-brand: #8b5cf6;
+  --background: #050505;
+  --foreground: #f8f7ff;
+  --card: #0a0a0f;
+  --card-foreground: #f8f7ff;
+  --popover: #0a0a0f;
+  --popover-foreground: #f8f7ff;
+  --primary: #8b5cf6;
+  --primary-foreground: #050505;
+  --secondary: #111119;
+  --secondary-foreground: #efe9ff;
+  --muted: #101018;
+  --muted-foreground: #a7a0bc;
+  --accent: #14141d;
+  --accent-foreground: #f8f7ff;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #8b5cf6;
+  --chart-1: #8b5cf6;
+  --chart-2: #a78bfa;
+  --chart-3: #c4b5fd;
+  --chart-4: #6d28d9;
+  --chart-5: #ddd6fe;
+  --sidebar: #08080d;
+  --sidebar-foreground: #f8f7ff;
+  --sidebar-primary: #8b5cf6;
+  --sidebar-primary-foreground: #050505;
+  --sidebar-accent: #111119;
+  --sidebar-accent-foreground: #f8f7ff;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #8b5cf6;
+}
+
+.dark {
+  --background: #050505;
+  --foreground: #f8f7ff;
+  --card: #0a0a0f;
+  --card-foreground: #f8f7ff;
+  --popover: #0a0a0f;
+  --popover-foreground: #f8f7ff;
+  --primary: #8b5cf6;
+  --primary-foreground: #050505;
+  --secondary: #111119;
+  --secondary-foreground: #efe9ff;
+  --muted: #101018;
+  --muted-foreground: #a7a0bc;
+  --accent: #14141d;
+  --accent-foreground: #f8f7ff;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: rgba(255, 255, 255, 0.08);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #8b5cf6;
+  --chart-1: #8b5cf6;
+  --chart-2: #a78bfa;
+  --chart-3: #c4b5fd;
+  --chart-4: #6d28d9;
+  --chart-5: #ddd6fe;
+  --sidebar: #08080d;
+  --sidebar-foreground: #f8f7ff;
+  --sidebar-primary: #8b5cf6;
+  --sidebar-primary-foreground: #050505;
+  --sidebar-accent: #111119;
+  --sidebar-accent-foreground: #f8f7ff;
+  --sidebar-border: rgba(255, 255, 255, 0.08);
+  --sidebar-ring: #8b5cf6;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Custom animations for AniVault */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shine {
+  0% { transform: translateX(-150%) skewX(-12deg); }
+  100% { transform: translateX(150%) skewX(-12deg); }
+}
+
+@keyframes title-marquee {
+  0%, 12% { transform: translateX(0); }
+  88%, 100% { transform: translateX(-50%); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.6s ease-out forwards;
+}
+
+.animate-slide-up {
+  animation: slide-up 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  height: 4px;
+  width: 4px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.28);
+  border-radius: 2px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.44);
+}
+
+/* Hide scrollbar for carousel */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Skewed button shine */
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -150%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  transform: skewX(-12deg);
+  transition: none;
+}
+.btn-shine:hover::after {
+  animation: shine 0.8s ease-out forwards;
+}
+
+::selection {
+  background: rgba(139, 92, 246, 0.35);
+  color: #ffffff;
+}
+
+.title-marquee {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.title-marquee__track {
+  display: inline-flex;
+  min-width: max-content;
+  align-items: center;
+  will-change: transform;
+}
+
+.title-marquee__copy {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.title-marquee__gap {
+  display: inline-block;
+  margin: 0 1rem;
+  color: rgba(139, 92, 246, 0.75);
+}
+
+.group:hover .title-marquee--overflowing .title-marquee__track,
+.title-marquee--overflowing:hover .title-marquee__track {
+  animation: title-marquee 8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .group:hover .title-marquee--overflowing .title-marquee__track,
+  .title-marquee--overflowing:hover .title-marquee__track {
+    animation: none;
+  }
+}

@@ -1,0 +1,109 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  name      String?
+  posts     Post[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Post {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  content   String?
+  published Boolean  @default(false)
+  authorId  String   @db.ObjectId
+  author    User     @relation(fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Anime {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  malId            Int?     @unique
+  animePaheId      String?
+  animePaheSession String?
+  slug             String?  @unique
+  title            String
+  englishTitle     String?
+  romajiTitle      String?
+  nativeTitle      String?
+  description      String?
+  format           String?
+  status           String?
+  episodes         Int?
+  genre            String[]
+  score            Float?
+  season           String?
+  seasonYear       Int?
+  studios          String[]
+  duration         Int?
+  coverImage       String?
+  carouselImage    String?
+  relations        Json?
+  episodeList      Json?
+  totalEpisodes    Int?
+  airedSubEpisodes Int?
+  airedDubEpisodes Int?
+  cachedAt         DateTime?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Indexes for homepage queries
+  @@index([status, seasonYear, score])
+  @@index([status, score])
+  @@index([updatedAt])
+  @@index([score, updatedAt])
+  @@index([carouselImage])
+}
+
+model SpotlightEntry {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  source           String
+  rank             Int
+  title            String?
+  englishTitle     String?
+  romajiTitle      String?
+  nativeTitle      String?
+  malId            Int?
+  animePaheId      String?
+  animePaheSession String?
+  slug             String?
+  coverImage       String?
+  carouselImage    String?
+  score            Float?
+  format           String?
+  status           String?
+  seasonYear       Int?
+  matcherVersion   Int?
+  syncedAt         DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@unique([source, rank])
+}
+
+model SyncState {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  key           String   @unique
+  lastRunAt     DateTime?
+  running       Boolean  @default(false)
+  lastJikanPage Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
