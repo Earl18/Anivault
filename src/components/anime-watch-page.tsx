@@ -183,6 +183,55 @@ function mergeEpisodes(baseEpisodes: WatchEpisode[], overrideEpisodes: WatchEpis
   });
 }
 
+function useResolvedStreamUrl(server: ServerOption | null) {
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(null);
+  const [isResolving, setIsResolving] = useState(false);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!server?.url) {
+      setResolvedUrl(null);
+      setResolveError(null);
+      return;
+    }
+
+    // Direct stream — no proxy needed
+    if (server.type === 'stream') {
+      setResolvedUrl(server.url);
+      setResolveError(null);
+      return;
+    }
+
+    // Embed URL (e.g. kwik.cx) — resolve via server-side proxy so we get the
+    // real .m3u8 URL. kwik.cx refuses to be iframed (X-Frame-Options: DENY).
+    let cancelled = false;
+    setIsResolving(true);
+    setResolvedUrl(null);
+    setResolveError(null);
+
+    fetch(`/api/anime/stream-proxy?url=${encodeURIComponent(server.url)}`)
+      .then((res) => res.json())
+      .then((data: { url?: string; message?: string }) => {
+        if (cancelled) return;
+        if (data.url) {
+          setResolvedUrl(data.url);
+        } else {
+          setResolveError(data.message ?? 'Could not resolve stream.');
+        }
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setResolveError(err instanceof Error ? err.message : 'Stream proxy error.');
+      })
+      .finally(() => {
+        if (!cancelled) setIsResolving(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [server?.url, server?.type]);
+
+  return { resolvedUrl, isResolving, resolveError };
+}
+
 function VideoPlayer({
   animeTitle,
   episodeNumber,
@@ -195,19 +244,17 @@ function VideoPlayer({
   className?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const { resolvedUrl, isResolving, resolveError } = useResolvedStreamUrl(server);
 
   useEffect(() => {
-    if (!server?.url || server.type !== 'stream') {
-      return;
-    }
+    if (!resolvedUrl) return;
 
     const video = videoRef.current;
-    if (!video) {
-      return;
-    }
+    if (!video) return;
 
+    // Safari / iOS — native HLS support
     if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = server.url;
+      video.src = resolvedUrl;
       return;
     }
 
@@ -227,56 +274,73 @@ function VideoPlayer({
           document.head.appendChild(script);
         }));
 
-      if (disposed || !HlsCtor) {
-        return;
-      }
+      if (disposed || !HlsCtor) return;
 
       if (typeof HlsCtor.isSupported === 'function' && !HlsCtor.isSupported()) {
-        video.src = server.url;
+        video.src = resolvedUrl;
         return;
       }
 
-      hlsInstance = new HlsCtor();
-      hlsInstance.loadSource?.(server.url);
-      hlsInstance.attachMedia?.(video);
+      hlsInstance = new HlsCtor({
+        xhrSetup: (xhr: XMLHttpRequest, url: string) => {
+          // kwik.cx CDN segments need the correct Referer
+          if (url.includes('kwik') || url.includes('owocdn')) {
+            xhr.setRequestHeader('Referer', 'https://animepahe.ru/');
+          }
+        },
+      });
+      hlsInstance?.loadSource?.(resolvedUrl);
+      hlsInstance?.attachMedia?.(video);
     };
 
     void setupHls().catch(() => {
-      video.src = server.url;
+      if (video) video.src = resolvedUrl;
     });
 
     return () => {
       disposed = true;
       hlsInstance?.destroy?.();
     };
-  }, [server]);
+  }, [resolvedUrl]);
 
-  if (!server?.url) {
-    return null;
+  if (!server?.url) return null;
+
+  // Loading state while proxy resolves
+  if (isResolving) {
+    return (
+      <div className={className ?? 'absolute inset-0 h-full w-full'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+          <svg className="animate-spin h-8 w-8 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+            <path d="M4 12a8 8 0 0 1 8-8" strokeLinecap="round" />
+          </svg>
+          <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>Resolving stream...</span>
+        </div>
+      </div>
+    );
   }
 
-  if (server.type === 'embed') {
+  if (resolveError && !resolvedUrl) {
     return (
-      <iframe
-        key={server.url}
-        src={server.url}
-        title={`${animeTitle} Episode ${episodeNumber}`}
-        className={className ?? 'absolute inset-0 h-full w-full'}
-        allowFullScreen
-        allow="autoplay; fullscreen; picture-in-picture"
-      />
+      <div className={className ?? 'absolute inset-0 h-full w-full'} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', maxWidth: '320px', textAlign: 'center', padding: '0 16px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.7)' }}>Stream unavailable</span>
+          <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{resolveError}</span>
+        </div>
+      </div>
     );
   }
 
   return (
     <video
-      key={server.url}
+      key={resolvedUrl ?? server.url}
       ref={videoRef}
       className={className ?? 'absolute inset-0 h-full w-full'}
       controls
       autoPlay
       playsInline
       crossOrigin="anonymous"
+      title={`${animeTitle} Episode ${episodeNumber}`}
     />
   );
 }

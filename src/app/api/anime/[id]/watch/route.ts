@@ -141,13 +141,17 @@ function inferLanguage(record: Record<string, unknown>) {
   return language.includes('eng') || language.includes('dub') ? 'dub' : 'sub';
 }
 
+// Non-source keys to skip during recursive descent to avoid false positives
+const COLLECT_SKIP_KEYS = new Set(['ids', 'id', 'paginationInfo', 'pagination']);
+
 function collectStreamUrls(
   value: unknown,
-  bucket: Array<{ url: string; language: 'sub' | 'dub'; label: string; type: 'embed' | 'stream' | 'download' }>
+  bucket: Array<{ url: string; language: 'sub' | 'dub'; label: string; type: 'embed' | 'stream' | 'download' }>,
+  visited = new WeakSet<object>()
 ) {
   if (Array.isArray(value)) {
     for (const item of value) {
-      collectStreamUrls(item, bucket);
+      collectStreamUrls(item, bucket, visited);
     }
     return;
   }
@@ -155,6 +159,12 @@ function collectStreamUrls(
   if (!value || typeof value !== 'object') {
     return;
   }
+
+  // Prevent double-processing the same object reference
+  if (visited.has(value as object)) {
+    return;
+  }
+  visited.add(value as object);
 
   const record = value as Record<string, unknown>;
   const resolution = readString(record, ['quality', 'resolution', 'label', 'title']);
@@ -164,30 +174,28 @@ function collectStreamUrls(
       : resolution.toUpperCase()
     : 'HD';
   const language = inferLanguage(record);
-  const candidateSources = [
-    { url: readString(record, ['embed', 'embed_url']), type: 'embed' as const },
-    { url: readString(record, ['url', 'file', 'src', 'link']), type: 'stream' as const },
-  ];
 
-  for (const candidate of candidateSources) {
-    if (candidate.url && /^https?:\/\//i.test(candidate.url)) {
-      bucket.push({
-        url: candidate.url,
-        language,
-        label,
-        type:
-          candidate.type === 'embed'
-            ? 'embed'
-            : candidate.url.endsWith('.m3u8')
-              ? 'stream'
-              : 'download',
-      });
-    }
+  // Prefer embed URL (kwik.cx etc.) as it handles auth/referer internally.
+  // Only fall back to direct stream URL if no embed is present.
+  const embedUrl = readString(record, ['embed', 'embed_url']);
+  const directUrl = readString(record, ['url', 'file', 'src', 'link']);
+
+  if (embedUrl && /^https?:\/\//i.test(embedUrl)) {
+    bucket.push({ url: embedUrl, language, label, type: 'embed' });
+  } else if (directUrl && /^https?:\/\//i.test(directUrl)) {
+    bucket.push({
+      url: directUrl,
+      language,
+      label,
+      type: directUrl.endsWith('.m3u8') ? 'stream' : 'download',
+    });
   }
 
-  for (const nestedValue of Object.values(record)) {
+  // Recurse into nested objects/arrays, skipping known non-source keys
+  for (const [key, nestedValue] of Object.entries(record)) {
+    if (COLLECT_SKIP_KEYS.has(key)) continue;
     if (nestedValue && typeof nestedValue === 'object') {
-      collectStreamUrls(nestedValue, bucket);
+      collectStreamUrls(nestedValue, bucket, visited);
     }
   }
 }
@@ -309,7 +317,34 @@ async function resolveAnimePaheDirect(
     }
   }
 
-  const selectedEpisode = episodes.find((item) => item.number === episode) ?? null;
+  // Primary lookup: match by exact episode number
+  let selectedEpisode = episodes.find((item) => item.number === episode) ?? null;
+
+  // Fallback: provider may number Season 2+ episodes continuing from Season 1
+  // e.g. requesting ep 1 of S2 but provider lists it as ep 13.
+  // Try index-based lookup (ep 1 -> episodes[0], ep 2 -> episodes[1], etc.)
+  if (!selectedEpisode && episodes.length >= episode) {
+    const byIndex = episodes[episode - 1];
+    if (byIndex?.externalIds?.animePaheEpisodeSession) {
+      console.info(
+        `[watch-route] direct episode index fallback | title="${anime.title}" | episode=${episode} | providerEpisode=${byIndex.number} | animeSession=${animeSession}`
+      );
+      selectedEpisode = { ...byIndex, number: episode };
+    }
+  }
+
+  // Second fallback: offset arithmetic from the minimum episode number
+  if (!selectedEpisode && episodes.length > 0) {
+    const minEpisodeNumber = Math.min(...episodes.map((e) => e.number));
+    const offsetEpisode = episodes.find((item) => item.number === minEpisodeNumber + episode - 1) ?? null;
+    if (offsetEpisode?.externalIds?.animePaheEpisodeSession) {
+      console.info(
+        `[watch-route] direct episode offset fallback | title="${anime.title}" | episode=${episode} | providerEpisode=${offsetEpisode.number} | minEpisode=${minEpisodeNumber} | animeSession=${animeSession}`
+      );
+      selectedEpisode = { ...offsetEpisode, number: episode };
+    }
+  }
+
   const episodeSession = selectedEpisode?.externalIds?.animePaheEpisodeSession;
   if (!selectedEpisode || !episodeSession) {
     console.warn(
@@ -368,7 +403,7 @@ async function resolveAnimePaheDirect(
 
   return {
     animeId: anime.id,
-    provider: 'animepahe',
+    provider: 'animepahe' as const,
     fallbackUsed: true,
     episode,
     episodes,
@@ -490,8 +525,9 @@ export async function GET(
       });
 
       if (hasPlayablePayload(directPayload)) {
-        writeCachedWatchPayload(id, episode, directPayload, 200);
-        return { payload: directPayload, status: 200 };
+        const playablePayload = directPayload as WatchPayload;
+        writeCachedWatchPayload(id, episode, playablePayload, 200);
+        return { payload: playablePayload, status: 200 };
       }
 
       console.warn(
